@@ -1,0 +1,14 @@
+// Cloudflare Workers の設定（GitHub から自動で公開されるときに使われる）
+// worker.js：ランキングの API（/api/rank）、遊んだ回数の集計（/api/play）と集計ページ（/stats）。それ以外は index.html をそのまま配信する（.assetsignore に書いたもの以外は配信しない）
+{
+  // ↓ Cloudflare のダッシュボードで付けた Worker の名前と同じにする
+  "name": "dantobi30",
+  "main": "worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": { "directory": ".", "binding": "ASSETS" },
+  // ランキングの保存先（Durable Object。無料プランで使える SQLite 版）。ダッシュボードでの作成は不要
+  "durable_objects": {
+    "bindings": [{ "name": "BOARD", "class_name": "Board" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Board"] }]
+}

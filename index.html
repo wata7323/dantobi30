@@ -61,6 +61,25 @@ a{color:inherit}
 .mnote{margin-top:12px;font-size:13px;color:var(--sub);line-height:1.6}
 .close{margin-top:12px;text-align:center;font-weight:800;color:var(--acc)}
 .ver{position:absolute;right:14px;bottom:9px;font-size:11px;color:var(--sub);font-weight:700}
+.rk{margin:0 0 10px;padding:8px 10px;background:#f2f4f9;border-radius:12px}
+.rkMsg{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:6px;min-height:16px}
+.rkMsg b{color:var(--ink)}
+.rkRow{display:flex;gap:6px}
+.rkRow input{flex:1;min-width:0;font:inherit;font-size:16px;font-weight:700;padding:8px 10px;border:1px solid #cfd5e3;border-radius:10px;background:#fff;color:var(--ink);user-select:text;-webkit-user-select:text}
+.rkRow button{flex:none;background:var(--acc2);color:#fff;font-weight:900;font-size:14px;border-radius:10px;padding:0 16px}
+.rkRow button:disabled{background:#aab3c5}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tabs button{flex:1;background:#eef1f7;font-weight:800;font-size:14px;border-radius:999px;padding:8px 0}
+.tabs button.on{background:var(--ink);color:#fff}
+.rkList{max-height:min(56vh,460px);overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+.rec{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid #eef1f7}
+.rec>b{flex:none;width:28px;text-align:center;font-size:15px;font-weight:900;color:var(--sub)}
+.rec:nth-child(-n+3)>b{color:var(--gold)}
+.rec span{flex:1;min-width:0;font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec small{display:block;font-size:11px;color:var(--sub);font-weight:700}
+.rec em{flex:none;font-style:italic;font-weight:900;font-size:16px}
+.rec.me{background:#fff6d6;border-radius:8px}
+.empty{text-align:center;color:var(--sub);font-weight:700;font-size:14px;padding:24px 0}
 </style>
 </head>
 <body>
@@ -84,6 +103,7 @@ a{color:inherit}
       <button class="pri" id="bStart">はじめる</button>
       <div class="row">
         <button class="sub" id="bHow">遊び方</button>
+        <button class="sub hide" id="bRank">ランキング</button>
         <button class="sub" id="bSnd"></button>
       </div>
       <div class="credit"><span id="author1"></span>｜ver. <span class="verTxt"></span></div>
@@ -96,8 +116,20 @@ a{color:inherit}
       <div class="rNote" id="rNote"></div>
       <div class="pips" id="rPips"></div>
       <div class="stats" id="rStats"></div>
+      <div class="rk hide" id="rkBox">
+        <div class="rkMsg" id="rkMsg"></div>
+        <div class="rkRow"><input id="rkName" maxlength="8" placeholder="なまえ（ひらがな・カタカナ）" autocomplete="off" enterkeyhint="send"><button id="rkGo">登録</button></div>
+      </div>
       <button class="pri" id="bAgain">もう一回</button>
       <div class="btns2"><button id="bImg">画像</button><button id="bX">Xでシェア</button><button id="bTop">タイトル</button></div>
+    </div>
+  </div>
+  <div class="modal hide" id="rank">
+    <div class="mbox" id="rankBox">
+      <h2>ランキング</h2>
+      <div class="tabs" id="rkPers"><button data-v="day" class="on">今日</button><button data-v="all">全期間</button></div>
+      <div class="rkList" id="rkList"></div>
+      <div class="close">外を触ると閉じる</div>
     </div>
   </div>
   <div class="modal hide" id="howto">
@@ -120,7 +152,7 @@ a{color:inherit}
 // ===== 計算部分（DOM を使わない。Node で読み込んで自動プレイできる）=====
 // 長さは m。時間はすべて実時間（秒）で進め、跳んでいる間の物理の時間は1回の跳びの長さに合わせて伸び縮みさせる
 // （遠くへ跳んでも1回の跳びは1秒たらずで終わる）。x は踏切板の先端が 0
-const VERSION = '0.7.0';
+const VERSION = '0.8.0';
 const P = {
   jumps: 30,                            // 跳ぶ回数（踏切から数えて）
   g: 9.81, hTake: 1.0,
@@ -987,7 +1019,7 @@ function showResult() {
   mode = 'result';
   const d = G.dist;
   let isBest = false;
-  if (!best || d > best.d) { isBest = true; best = { d, at: Date.now() }; store.set('best', best); bestUI(); }
+  if (!best || d > best.d) { isBest = true; best = { d, at: Date.now(), p: G.perfects, j: G.justs }; store.set('best', best); bestUI(); }
   lastRes = { d, perfects: G.perfects, maxCombo: G.maxCombo, maxV: G.maxV, judge: G.judge.map(j => j.gi), isBest };
   $('rTier').textContent = tierOf(d);
   $('rDist').innerHTML = fmtDist(d).replace(/(m|km)$/, '<small>$1</small>');
@@ -996,6 +1028,7 @@ function showResult() {
   $('rPips').innerHTML = G.judge.map(j => `<i style="background:${GCOLS[j.gi]}"></i>`).join('');
   $('rStats').innerHTML = [['PERFECT', G.perfects + ' / ' + P.jumps], ['JUST ×' + G.boost.toFixed(2), G.justs], ['最大コンボ', G.maxCombo], ['最高速', kmh(G.maxV) + 'km/h']].map(c => `<div>${c[0]}<b>${c[1]}</b></div>`).join('');
   $('result').classList.remove('hide');
+  playLog('done'); rkOverUI();
 }
 
 // ----- 共有 -----
@@ -1041,13 +1074,107 @@ function onTap(ts) {
 }
 cv.addEventListener('pointerdown', e => { e.preventDefault(); onTap(e.timeStamp); });
 document.addEventListener('keydown', e => {
-  if (e.repeat) return;
+  if (e.repeat || e.target.tagName === 'INPUT') return;   // なまえの入力中は操作にしない
   if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); if (mode === 'play') onTap(e.timeStamp); else if (mode === 'result') startPlay(); }
 });
+// ----- ランキングと集計（送るのは記録・PERFECT と JUST の数・なまえ・遊んだ回の数字だけ）-----
+const ONLINE = /^https?:$/.test(location.protocol);
+const hex = n => { const a = new Uint8Array(n); crypto.getRandomValues(a); return [...a].map(x => x.toString(16).padStart(2, '0')).join(''); };
+function devId() {   // 端末番号（1人1件のため。ランダムな数字だけ）
+  let d = store.get('dev', '');
+  if (!/^[0-9a-f]{16}$/.test(d)) { d = hex(8); store.set('dev', d); }
+  return d;
+}
+// 遊んだ回を送る。届かなかったら端末に控え、開いたとき・次が届いた直後に1件ずつ送り直す（7日 か 5回で捨てる）
+async function postPlay(b) {   // 届いた（または中身が悪くて断られた）なら true
+  try { const r = await fetch('/api/play', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b), keepalive: true }); return r.ok || r.status === 400; } catch (e) { return false; }
+}
+async function sendPlay(b) {
+  if (await postPlay(b)) { setTimeout(flushPlays, 2500); return; }   // 連投の制限（2秒）があるので間を空ける
+  const q = store.get('q', []); q.push({ b, at: Date.now(), n: 1 }); store.set('q', q.slice(-30));
+}
+async function flushPlays() {
+  const q = store.get('q', []).filter(x => Date.now() - x.at < 7 * 864e5 && x.n < 5); store.set('q', q);
+  if (!ONLINE || !q.length) return;
+  const x = q[0], ok = await postPlay(x.b), q2 = store.get('q', []), i = q2.findIndex(y => y.b.e === x.b.e);
+  if (i >= 0) { if (ok) q2.splice(i, 1); else q2[i].n++; store.set('q', q2); }
+  if (ok && q2.length) setTimeout(flushPlays, 2500);
+}
+function playLog(why) {   // 1回の遊びが終わったとき（途中でやめた回も）
+  if (!ONLINE || G.st === 'ready') return;
+  const f = store.get('played', 0) ? 0 : 1; store.set('played', 1);   // その端末で初めて遊んだ回
+  sendPlay({ e: hex(8), f, v: VERSION, l: { why, d: G.dist, p: G.perfects, j: G.justs, c: G.maxCombo, n: G.n, t: +G.rt.toFixed(1) } });
+}
+const RK_NAME = /^[ぁ-ゖァ-ヺー]{1,8}$/;
+const rk = { data: null, per: 'day', busy: false };
+function rkBtn(done) { $('rkGo').disabled = done; $('rkGo').textContent = done ? '登録ずみ' : '登録'; }
+function rkOverUI() {   // 結果の画面の登録欄：自己ベストを出す（もう登録した自己ベストなら「登録ずみ」）
+  const ok = ONLINE && best && best.p != null;
+  $('rkBox').classList.toggle('hide', !ok);
+  if (!ok) return;
+  const done = store.get('rk_sent', null) === best.d;
+  $('rkName').value = store.get('rk_name', ''); rkBtn(done);
+  $('rkMsg').innerHTML = done ? '自己ベスト <b></b> は登録ずみ' : '自己ベスト <b></b> をランキングに登録';
+  $('rkMsg').querySelector('b').textContent = fmtDist(best.d);
+}
+async function rkSubmit() {
+  if (!best || best.p == null || rk.busy) return;
+  const u = $('rkName').value.trim();
+  if (u && !RK_NAME.test(u)) { $('rkMsg').textContent = 'なまえは ひらがな・カタカナ 8文字まで'; return; }
+  store.set('rk_name', u); rk.busy = true; $('rkGo').disabled = true; $('rkMsg').textContent = '送っています…';
+  const s = best.d;
+  try {
+    const res = await fetch('/api/rank', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ s, u, p: best.p, j: best.j, d: devId(), at: best.at }) });   // at：自己ベストを出した時刻（今日の一覧に入れるかどうか）
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || res.status);
+    rk.data = j;
+    if (j.id) { const ids = store.get('rk_ids', []); ids.unshift(j.id); store.set('rk_ids', ids.slice(0, 50)); }
+    store.set('rk_sent', s);   // この自己ベストは送った（次に更新するまで「登録ずみ」）
+    const pos = [j.dpos ? `今日 <b>${j.dpos}位</b>` : '', j.pos ? `全期間 <b>${j.pos}位</b>` : ''].filter(Boolean).join('　');
+    $('rkMsg').innerHTML = j.id ? '登録しました！　' + pos : pos ? '自分のいちばんの記録は　' + pos : '100位に入りませんでした';
+    rkBtn(true);
+  } catch (e) {
+    const m = String(e.message);
+    $('rkMsg').textContent = m === 'invalid' ? 'なまえを変えてみてください' : m === 'busy' ? '少し待ってからもう一度' : 'つながりませんでした';
+    $('rkGo').disabled = false;
+  }
+  rk.busy = false;
+}
+$('rkGo').onclick = rkSubmit;
+$('rkName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); rkSubmit(); } });
+async function rkLoad() {
+  $('rkList').innerHTML = '<p class="empty">よみこみ中…</p>';
+  try { const res = await fetch('/api/rank'); if (!res.ok) throw 0; rk.data = await res.json(); } catch (e) { rk.data = null; }
+  rkList();
+}
+function rkList() {
+  const box = $('rkList'); box.innerHTML = '';
+  if (!rk.data || !rk.data[rk.per]) { box.innerHTML = '<p class="empty">ランキングにつながりませんでした</p>'; return; }
+  const list = rk.data[rk.per], mine = new Set(store.get('rk_ids', []));
+  if (!list.length) { box.innerHTML = '<p class="empty">まだだれもいません。一番のりしよう！</p>'; return; }
+  list.forEach((e, i) => {
+    const el = document.createElement('div'); el.className = 'rec' + (mine.has(e.id) ? ' me' : '');
+    el.innerHTML = '<b></b><span><span class="nm"></span><small></small></span><em></em>';
+    el.querySelector('b').textContent = i + 1; el.querySelector('.nm').textContent = e.u || 'ななし';
+    el.querySelector('small').textContent = `PERFECT ${e.p}　JUST ${e.j}`; el.querySelector('em').textContent = fmtDist(e.s);
+    box.append(el);
+  });
+}
+$('bRank').classList.toggle('hide', !ONLINE);
+$('bRank').onclick = () => { $('rank').classList.remove('hide'); rkLoad(); };
+$('rank').onclick = () => $('rank').classList.add('hide');
+$('rankBox').onclick = e => e.stopPropagation();   // 中を触っても閉じない
+$('rkPers').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return; rk.per = b.dataset.v;
+  for (const x of $('rkPers').children) x.classList.toggle('on', x === b); rkList();
+};
+setTimeout(flushPlays, 3000);
+
 $('bStart').onclick = startPlay;
 $('bAgain').onclick = startPlay;
 $('bTop').onclick = toTitle;
-$('bQuit').onclick = toTitle;
+$('bQuit').onclick = () => { if (mode === 'play') playLog('quit'); toTitle(); };
 $('bSnd').onclick = toggleSnd; $('bSnd2').onclick = toggleSnd;
 $('bHow').onclick = () => $('howto').classList.remove('hide');
 $('howto').onclick = () => { $('howto').classList.add('hide'); store.set('seen', 1); };
