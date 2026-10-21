@@ -22,13 +22,14 @@ a{color:inherit}
 .ic{pointer-events:auto;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.9);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .scr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px)}
 #title{justify-content:space-between;background:linear-gradient(rgba(255,255,255,.0) 40%,rgba(20,33,61,.35))}
-.logo{margin-top:6vh;text-align:center;color:#fff;text-shadow:0 3px 0 var(--ink),0 6px 18px rgba(20,33,61,.35)}
+.logo{margin-top:3vh;text-align:center;color:#fff;text-shadow:0 2px 0 var(--ink)}
+.lgBox{background:rgba(20,33,61,.8);border-radius:22px;padding:10px 14px 14px;box-shadow:0 8px 24px rgba(20,33,61,.3)}
 .lg0{font-size:22px;font-weight:900;font-style:italic;letter-spacing:.1em}
-.lg1{font-size:52px;font-weight:900;font-style:italic;letter-spacing:.02em;line-height:1.1}
+.lg1{font-size:40px;font-weight:900;font-style:italic;letter-spacing:.02em;line-height:1.1}
 .lg1 b{color:#ffd23f}
-.lgS{width:min(360px,92vw);margin:4px auto;font-size:15px;font-weight:900;font-style:italic;line-height:1.35}
+.lgS{width:min(330px,84vw);margin:2px auto;font-size:13px;font-weight:900;font-style:italic;line-height:1.35}
 .lgS span{display:inline-block;white-space:nowrap}
-.lg2{font-size:14px;font-weight:900;font-style:italic;letter-spacing:.2em;margin-top:6px}
+.lg2{font-size:44px;font-weight:900;font-style:italic;letter-spacing:.04em;line-height:1.1;margin-top:8px;padding-top:8px;border-top:2px solid rgba(255,255,255,.35)}
 .tBest{margin-top:14px;display:inline-block;background:rgba(255,255,255,.92);color:var(--ink);text-shadow:none;font-weight:800;font-size:14px;padding:6px 14px;border-radius:999px}
 .tBot{width:min(420px,100%);display:flex;flex-direction:column;align-items:center;gap:12px}
 .pri{background:var(--acc);color:#fff;font-weight:900;font-size:20px;border-radius:999px;padding:16px 0;width:100%;box-shadow:0 5px 0 #b8380b}
@@ -36,6 +37,7 @@ a{color:inherit}
 .row{display:flex;gap:10px;width:100%}
 .sub{flex:1;background:rgba(255,255,255,.94);font-weight:800;font-size:15px;border-radius:999px;padding:12px 0;display:flex;align-items:center;justify-content:center;gap:6px}
 .credit{font-size:11px;color:rgba(255,255,255,.9);font-weight:700}
+.credit a,.ver a{color:inherit}
 #result{justify-content:flex-end}
 .sheet{width:min(440px,100%);background:var(--card);border-radius:22px;padding:14px 16px 14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .rTier{font-weight:900;font-size:15px;color:var(--acc2)}
@@ -93,10 +95,12 @@ a{color:inherit}
   </div>
   <div class="scr" id="title">
     <div class="logo">
-      <div class="lg1">ホップ・</div>
-      <div class="lgS" id="lgSteps"></div>
-      <div class="lg1"><b>ジャンプ</b></div>
-      <div class="lg2">決めるほど、加速する</div>
+      <div class="lgBox">
+        <div class="lg1">ホップ・</div>
+        <div class="lgS" id="lgSteps"></div>
+        <div class="lg1"><b>ジャンプ</b></div>
+        <div class="lg2">30だんとび</div>
+      </div>
       <div class="tBest" id="tBest">ベスト —</div>
     </div>
     <div class="tBot">
@@ -152,7 +156,7 @@ a{color:inherit}
 // ===== 計算部分（DOM を使わない。Node で読み込んで自動プレイできる）=====
 // 長さは m。時間はすべて実時間（秒）で進め、跳んでいる間の物理の時間は1回の跳びの長さに合わせて伸び縮みさせる
 // （遠くへ跳んでも1回の跳びは1秒たらずで終わる）。x は踏切板の先端が 0
-const VERSION = '0.8.0';
+const VERSION = '0.8.1';
 const P = {
   jumps: 30,                            // 跳ぶ回数（踏切から数えて）
   g: 9.81, hTake: 1.0,
@@ -280,7 +284,7 @@ function step(G, rdt) {
 /*SIM-END*/
 
 // ===== ここから表示・音・操作 =====
-const AUTHOR = '作者', AUTHOR_URL = '';   // 連絡先（X など）を入れると遊び方とタイトルにリンクが出る
+const AUTHOR = 'わたわたするわた', AUTHOR_X = 'watawatasuruwat';   // 作者と X のアカウント（遊び方とタイトルに出す）
 const $ = id => document.getElementById(id);
 const store = {
   get(k, d) { try { const v = localStorage.getItem('tj30_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -290,8 +294,8 @@ document.querySelectorAll('.verTxt').forEach(e => e.textContent = VERSION);
 $('lgSteps').innerHTML = '<span>ステップ・</span>'.repeat(28);   // ロゴ：ホップ・ステップ×28・ジャンプ
 for (const id of ['author1', 'author2']) {
   const el = $(id);
-  if (AUTHOR_URL) { const a = document.createElement('a'); a.href = AUTHOR_URL; a.target = '_blank'; a.rel = 'noopener'; a.textContent = AUTHOR; el.appendChild(a); }
-  else el.textContent = AUTHOR;
+  const a = document.createElement('a'); a.href = 'https://x.com/' + AUTHOR_X; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'X @' + AUTHOR_X;
+  el.append(AUTHOR + '（', a, '）');
 }
 const FONT = getComputedStyle(document.body).fontFamily;
 const fmtDist = d => d >= 1000 ? (d / 1000).toFixed(d >= 100000 ? 0 : d >= 10000 ? 1 : 2) + 'km' : d.toFixed(1) + 'm';
@@ -419,10 +423,7 @@ function layer(h, draw, lw = 520) {
 }
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 // 遠くの景色（横につなげて並べる1枚）。下の端が地平線
-// 看板：ホップ・ステップ×28・ジャンプ（30段ぶん）。1枚の幅を文に合わせて、つなぎ目なく流す
-const SIGN = ['ホップ', ...Array(28).fill('ステップ'), 'ジャンプ'].join('・');
 function buildStands() {
-  const m = document.createElement('canvas').getContext('2d'); m.font = `900 italic 15px ${FONT}`;
   return layer(190, (x, w, h, r) => {
     x.fillStyle = '#d7dde8'; x.fillRect(0, 0, w, 14);
     x.fillStyle = '#2b3a5c'; x.fillRect(0, 14, w, 16);
@@ -432,9 +433,8 @@ function buildStands() {
       for (let k = 0; k < w / 7; k++) { if (r() < 0.18) continue; const cx = k * 7 + 3; x.fillStyle = cols[Math.floor(r() * cols.length)]; x.fillRect(cx - 2, y + rh * 0.45, 4, rh * 0.5); x.fillStyle = '#e0b48c'; x.beginPath(); x.arc(cx, y + rh * 0.42, 1.8, 0, 7); x.fill(); }
     }
     x.fillStyle = '#1d4ed8'; x.fillRect(0, h - 34, w, 24);
-    x.fillStyle = '#fff'; x.font = `900 italic 15px ${FONT}`; x.textBaseline = 'middle'; x.fillText(SIGN, 40, h - 22);
     x.fillStyle = '#4e9c4a'; x.fillRect(0, h - 10, w, 10);
-  }, Math.ceil(m.measureText(SIGN).width) + 40 + 140);   // 文のあとに 140px 空けてから2周目
+  });
 }
 function buildCity() {
   return layer(170, (x, w, h, r) => {
