@@ -162,7 +162,7 @@ a{color:inherit}
 // ===== 計算部分（DOM を使わない。Node で読み込んで自動プレイできる）=====
 // 長さは m。時間はすべて実時間（秒）で進め、跳んでいる間の物理の時間は1回の跳びの長さに合わせて伸び縮みさせる
 // （遠くへ跳んでも1回の跳びは1秒たらずで終わる）。x は踏切板の先端が 0
-const VERSION = '0.10.1';
+const VERSION = '0.10.2';
 const P = {
   jumps: 30,                            // 跳ぶ回数（踏切から数えて）
   g: 9.81, hTake: 1.0,
@@ -1045,9 +1045,9 @@ const ZKEYS = ['stadium', 'city', 'farm', 'sea', 'desert', 'snow', 'horizon'];
 const zKey = d => ZKEYS[zoneAt(d)];
 const isPhone = () => matchMedia('(pointer:coarse)').matches;   // 端末の共有シートはスマホだけ（Windows の Chrome・Edge でも出てしまうため）
 function shareLink() { return /^https?:$/.test(location.protocol) && lastRes ? location.origin + '/k/' + zKey(lastRes.d) : ''; }
-function shareText() {   // 結果の名前を先に、1行に1つ。ハッシュタグの前は空行
+function shareText() {   // 1行に1つ：記録／結果の名前／数字／ハッシュタグ（リンクはこのあとに付く）
   const r = lastRes; if (!r) return '';
-  return `${tierOf(r.d)}\n30だんとびで ${fmtDist(r.d)}！\nPERFECT ${r.perfects}/${P.jumps}　最高速 ${kmh(r.maxV)}km/h\n\n#30段飛び`;
+  return `30段飛びで ${fmtDist(r.d)}達成！\n${tierOf(r.d)}！\nPERFECT ${r.perfects}/${P.jumps}　コンボ ${r.maxCombo}　最高速 ${kmh(r.maxV)}km/h\n#30段飛び`;
 }
 // 景色の絵（空・雲・遠くの景色・地面）。結果カードとプレビュー画像で使う。hz は地平線の高さ
 function paintScene(x, w, h, zi, hz, sc) {
