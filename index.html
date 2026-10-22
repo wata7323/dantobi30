@@ -149,7 +149,7 @@ a{color:inherit}
 // ===== 計算部分（DOM を使わない。Node で読み込んで自動プレイできる）=====
 // 長さは m。時間はすべて実時間（秒）で進め、跳んでいる間の物理の時間は1回の跳びの長さに合わせて伸び縮みさせる
 // （遠くへ跳んでも1回の跳びは1秒たらずで終わる）。x は踏切板の先端が 0
-const VERSION = '0.9.2';
+const VERSION = '0.9.3';
 const P = {
   jumps: 30,                            // 跳ぶ回数（踏切から数えて）
   g: 9.81, hTake: 1.0,
@@ -923,8 +923,9 @@ const gView = { p: 0.5 };   // 表示しているピークの位置（新しい�
 function gaugeSpec() {
   const lab = G.n + 1 >= P.jumps ? '30段目　ばこーん！' : (G.n + 1) + '段目';
   if (G.st === 'ready' || G.st === 'run') return { label: '踏切', p: G.peak, bar: G.bar, left: G.st === 'run' ? boardR(G) - G.rt : 9, next: G.peakNext };
-  if (G.st === 'air' && G.n < P.jumps) return { label: lab, p: G.peak, bar: G.bar, left: G.takeR + G.T - G.rt, next: G.n < P.jumps ? G.peakNext : null };
-  if (G.st === 'ground') return { label: lab, p: G.peak, bar: G.bar, left: G.tdR - G.rt, next: G.n < P.jumps ? G.peakNext : null };
+  const next = G.n + 1 < P.jumps ? G.peakNext : null;   // 30段目のあとは押すところがないので NEXT は出さない
+  if (G.st === 'air' && G.n < P.jumps) return { label: lab, p: G.peak, bar: G.bar, left: G.takeR + G.T - G.rt, next };
+  if (G.st === 'ground') return { label: lab, p: G.peak, bar: G.bar, left: G.tdR - G.rt, next };
   return null;
 }
 function holdGauge() { const g = gaugeSpec(); if (g) gHold = Object.assign(g, { t0: performance.now() }); }
