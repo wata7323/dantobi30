@@ -5,7 +5,8 @@
   "name": "dantobi30",
   "main": "worker.js",
   "compatibility_date": "2025-09-01",
-  "assets": { "directory": ".", "binding": "ASSETS" },
+  // run_worker_first：トップ（/）も worker.js を通し、プレビュー画像の URL を公開先の https://… にする
+  "assets": { "directory": ".", "binding": "ASSETS", "run_worker_first": ["/"] },
   // ランキングの保存先（Durable Object。無料プランで使える SQLite 版）。ダッシュボードでの作成は不要
   "durable_objects": {
     "bindings": [{ "name": "BOARD", "class_name": "Board" }]

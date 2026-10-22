@@ -4,7 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#86cdf5">
-<title>30段跳び</title>
+<title>30だんとび</title>
+<meta name="description" content="ホップ・ステップ×28・ジャンプ。着地のたびにタップして、30段跳びでどこまで飛べるか。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="30だんとび">
+<meta property="og:description" content="ホップ・ステップ×28・ジャンプ。着地のたびにタップして、30段跳びでどこまで飛べるか。">
+<meta property="og:url" content="%ORIGIN%/">
+<meta property="og:image" content="%ORIGIN%/og/v1/top.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{--ink:#14213d;--sub:#56627e;--card:#ffffff;--acc:#ff5a1f;--acc2:#1d4ed8;--gold:#f5b301;--bad:#e11d48;
   --font:"Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif}
@@ -50,6 +59,9 @@ a{color:inherit}
 .stats b{display:block;font-size:13px;color:var(--ink)}
 .btns2{display:flex;gap:8px;margin-top:10px}
 .btns2 button{flex:1;background:#eef1f7;font-weight:800;font-size:14px;border-radius:999px;padding:11px 0}
+.btns2 .icb{flex:none;width:54px;padding:0;display:grid;place-items:center}
+.btns2 button:disabled{opacity:.45}
+.toast{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translateX(-50%);max-width:calc(100% - 32px);background:rgba(20,33,61,.92);color:#fff;font-weight:800;font-size:13px;padding:10px 16px;border-radius:12px;z-index:20;text-align:center;pointer-events:none}
 .modal{position:absolute;inset:0;background:rgba(20,33,61,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
 .mbox{position:relative;width:min(420px,100%);background:#fff;border-radius:20px;padding:18px 18px 30px}
 .mbox h2{margin:0 0 10px;font-size:20px;font-weight:900;font-style:italic}
@@ -118,9 +130,10 @@ a{color:inherit}
         <div class="rkRow"><input id="rkName" maxlength="8" placeholder="なまえ（ひらがな・カタカナ）" autocomplete="off" enterkeyhint="send"><button id="rkGo">登録</button></div>
       </div>
       <button class="pri" id="bAgain">もう一回</button>
-      <div class="btns2"><button id="bImg">画像</button><button id="bX">Xでシェア</button><button id="bTop">タイトル</button></div>
+      <div class="btns2"><button class="icb" id="bX" aria-label="Xで共有" disabled></button><button class="icb" id="bImg" aria-label="画像を保存／共有" disabled></button><button id="bTop">タイトル</button></div>
     </div>
   </div>
+  <div class="toast hide" id="toast"></div>
   <div class="modal hide" id="rank">
     <div class="mbox" id="rankBox">
       <h2>ランキング</h2>
@@ -149,7 +162,7 @@ a{color:inherit}
 // ===== 計算部分（DOM を使わない。Node で読み込んで自動プレイできる）=====
 // 長さは m。時間はすべて実時間（秒）で進め、跳んでいる間の物理の時間は1回の跳びの長さに合わせて伸び縮みさせる
 // （遠くへ跳んでも1回の跳びは1秒たらずで終わる）。x は踏切板の先端が 0
-const VERSION = '0.9.3';
+const VERSION = '0.10.0';
 const P = {
   jumps: 30,                            // 跳ぶ回数（踏切から数えて）
   g: 9.81, hTake: 1.0,
@@ -389,13 +402,15 @@ const ICON = {
   sndOn: SV('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>'),
   sndOff: SV('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/>'),
   quit: SV('<path d="M6 6l12 12M18 6L6 18"/>'),
+  save: SV('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
+  x: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
 };
 function sndUI() {
   $('bSnd2').innerHTML = AU.on ? ICON.sndOn : ICON.sndOff;
   $('bSnd').innerHTML = (AU.on ? ICON.sndOn : ICON.sndOff) + (AU.on ? '音 ON' : '音 OFF');
 }
 function toggleSnd() { AU.on = !AU.on; store.set('snd', AU.on); sndUI(); }
-$('bQuit').innerHTML = ICON.quit;
+$('bQuit').innerHTML = ICON.quit; $('bX').innerHTML = ICON.x; $('bImg').innerHTML = ICON.save;
 sndUI();
 
 // ----- 画面 -----
@@ -1021,39 +1036,99 @@ function showResult() {
   $('rPips').innerHTML = G.judge.map(j => `<i style="background:${GCOLS[j.gi]}"></i>`).join('');
   $('rStats').innerHTML = [['PERFECT', G.perfects + ' / ' + P.jumps], ['JUST ×' + G.boost.toFixed(2), G.justs], ['最大コンボ', G.maxCombo], ['最高速', kmh(G.maxV) + 'km/h']].map(c => `<div>${c[0]}<b>${c[1]}</b></div>`).join('');
   $('result').classList.remove('hide');
-  playLog('done'); rkOverUI();
+  playLog('done'); rkOverUI(); makeCard();
 }
 
 // ----- 共有 -----
-function shareText() {
+// 結果の種類は景色（ZONES と同じ並び）。URL には決まったキーだけを入れる（/k/キー が結果に合ったプレビューのページ）
+const ZKEYS = ['stadium', 'city', 'farm', 'sea', 'desert', 'snow', 'horizon'];
+const zKey = d => ZKEYS[zoneAt(d)];
+const isPhone = () => matchMedia('(pointer:coarse)').matches;   // 端末の共有シートはスマホだけ（Windows の Chrome・Edge でも出てしまうため）
+function shareLink() { return /^https?:$/.test(location.protocol) && lastRes ? location.origin + '/k/' + zKey(lastRes.d) : ''; }
+function shareText() {   // 結果の名前を先に、1行に1つ。ハッシュタグの前は空行
   const r = lastRes; if (!r) return '';
-  return `30段跳びで ${fmtDist(r.d)}！（${tierOf(r.d)}）\nPERFECT ${r.perfects}／最高速 ${kmh(r.maxV)}km/h\n#30段跳び`;
+  return `${tierOf(r.d)}\n30だんとびで ${fmtDist(r.d)}！\nPERFECT ${r.perfects}/${P.jumps}　最高速 ${kmh(r.maxV)}km/h\n\n#30だんとび`;
 }
+// 景色の絵（空・雲・遠くの景色・地面）。結果カードとプレビュー画像で使う。hz は地平線の高さ
+function paintScene(x, w, h, zi, hz, sc) {
+  const Z = ZONES[zi], g = x.createLinearGradient(0, 0, 0, hz);
+  g.addColorStop(0, Z.sky); g.addColorStop(1, '#d6effc');
+  x.fillStyle = g; x.fillRect(0, 0, w, hz);
+  x.fillStyle = 'rgba(255,255,255,.85)';
+  for (const [cx, cy, r] of [[0.12, 0.16, 1], [0.46, 0.08, 0.7], [0.83, 0.2, 1.2]]) { const X = cx * w, Y = cy * hz, R = 34 * sc * r; x.beginPath(); x.ellipse(X, Y, R * 1.6, R * 0.55, 0, 0, 7); x.ellipse(X + R * 0.6, Y - R * 0.3, R, R * 0.6, 0, 0, 7); x.fill(); }
+  const img = FAR[Z.far];
+  if (img) { const iw = img.width / DPR * sc, ih = img.height / DPR * sc; for (let X = -iw * 0.3; X < w; X += iw) x.drawImage(img, X, hz - ih, iw, ih); }
+  x.fillStyle = Z.band; x.fillRect(0, hz, w, 18 * sc);
+  x.fillStyle = Z.near; x.fillRect(0, hz + 18 * sc, w, h - hz);
+}
+const logoImg = () => document.querySelector('.l1Mark');
+// ロゴは白いにじみを付けて描く（観客席の上でも紺の文字が沈まないように）
+function drawLogo(x, L, X, Y, w) { const h = w * L.naturalHeight / L.naturalWidth; x.save(); x.shadowColor = 'rgba(255,255,255,.95)'; x.shadowBlur = w * 0.05; x.drawImage(L, X, Y, w, h); x.drawImage(L, X, Y, w, h); x.restore(); x.drawImage(L, X, Y, w, h); }
+function outlined(x, s, X, Y, size, col) {
+  x.font = `900 italic ${size}px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineJoin = 'round';
+  x.lineWidth = size * 0.2; x.strokeStyle = '#14213d'; x.strokeText(s, X, Y); x.fillStyle = col; x.fillText(s, X, Y);
+}
+// 結果カード（投稿に付ける画像。1080×1080）
 function cardCanvas() {
   const r = lastRes, c = document.createElement('canvas'); c.width = 1080; c.height = 1080;
-  const x = c.getContext('2d');
-  const g = x.createLinearGradient(0, 0, 0, 1080); g.addColorStop(0, '#2b6fd6'); g.addColorStop(0.62, '#bfe6fb'); g.addColorStop(0.62, '#c85a3c'); g.addColorStop(0.7, '#c85a3c'); g.addColorStop(0.7, '#5aa957'); g.addColorStop(1, '#4e9c4a');
-  x.fillStyle = g; x.fillRect(0, 0, 1080, 1080);
-  const T = (s, X, Y, size, col) => { x.font = `900 italic ${size}px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineJoin = 'round'; x.lineWidth = size * 0.14; x.strokeStyle = '#14213d'; x.strokeText(s, X, Y); x.fillStyle = col; x.fillText(s, X, Y); };
-  T('30段跳び', 540, 120, 96, '#fff');
-  T(fmtDist(r.d), 540, 360, 200, '#ffd23f');
-  T(tierOf(r.d), 540, 510, 56, '#fff');
-  T(`PERFECT ${r.perfects}　最高速 ${kmh(r.maxV)}km/h`, 540, 600, 40, '#fff');
-  const n = r.judge.length, w = 900 / n;
-  r.judge.forEach((gi, i) => { x.fillStyle = GCOLS[gi]; x.fillRect(90 + i * w, 900, w - 6, 60); });
+  const x = c.getContext('2d'), zi = zoneAt(r.d);
+  paintScene(x, 1080, 1080, zi, 700, 2.2);
+  const L = logoImg(); if (L && L.naturalWidth) drawLogo(x, L, 540 - 310, 40, 620);
+  outlined(x, fmtDist(r.d), 540, 520, 170, '#ffd23f');
+  outlined(x, tierOf(r.d), 540, 640, 54, '#fff');
+  x.fillStyle = 'rgba(20,33,61,.82)'; x.fillRect(120, 790, 840, 200);
+  x.font = `900 40px ${FONT}`; x.textAlign = 'center'; x.fillStyle = '#fff';
+  x.fillText(`PERFECT ${r.perfects}/${P.jumps}　最高速 ${kmh(r.maxV)}km/h`, 540, 845);
+  const n = r.judge.length, w = 760 / n;
+  r.judge.forEach((gi, i) => { x.fillStyle = GCOLS[gi]; x.fillRect(160 + i * w, 900, w - 5, 52); });
   return c;
 }
-$('bImg').onclick = async () => {
-  cardCanvas().toBlob(async b => {
-    const name = '30dantobi.png';
-    try { const f = new File([b], name, { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], text: shareText() }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+// プレビュー画像（リンクを貼ったときに出る 1200×630。私用/計測/ogp.js が og/ に書き出す）。左下は X がドメイン名を重ねるので空ける
+function ogCanvas(zi) {
+  const c = document.createElement('canvas'); c.width = 1200; c.height = 630;
+  const x = c.getContext('2d');
+  paintScene(x, 1200, 630, Math.max(0, zi), 470, 1.25);
+  const L = logoImg(); if (L && L.naturalWidth) { const lw = zi < 0 ? 700 : 560; drawLogo(x, L, 600 - lw / 2, zi < 0 ? 40 : 20, lw); }
+  if (zi >= 0) outlined(x, tierOf(ZONES[zi].from < 0 ? 0 : ZONES[zi].from), 600, 440, 66, '#ffd23f');
+  else outlined(x, 'どこまで跳べる？', 600, 520, 56, '#fff');
+  return c;
+}
+let card = null;   // {blob, file}：結果を出した時点で作る。でき上がるまで共有・保存は押せない
+function makeCard() {
+  card = null; $('bX').disabled = $('bImg').disabled = true;
+  cardCanvas().toBlob(b => {
+    if (!b) return;
+    const n = store.get('imgN', 0) + 1; store.set('imgN', n);
+    card = { blob: b, file: new File([b], `30だんとび_記録_${String(n).padStart(4, '0')}.png`, { type: 'image/png' }) };
+    $('bX').disabled = $('bImg').disabled = false;
   }, 'image/png');
-};
-$('bX').onclick = () => {
-  const url = location.protocol.startsWith('http') ? location.origin + location.pathname : '';
-  window.open('https://x.com/intent/post?text=' + encodeURIComponent(shareText()) + (url ? '&url=' + encodeURIComponent(url) : ''), '_blank', 'noopener');
-};
+}
+let toastT = 0;
+function toast(m) { const t = $('toast'); t.textContent = m; t.classList.remove('hide'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hide'), 3200); }
+const canShareFile = () => { try { return isPhone() && card && navigator.canShare && navigator.canShare({ files: [card.file] }); } catch (e) { return false; } };
+function download() { const a = document.createElement('a'); a.href = URL.createObjectURL(card.blob); a.download = card.file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); }
+// 共有：スマホは画像つきの共有シート（リンクは本文の最後に）、それ以外は X の投稿画面＋画像をクリップボードへ
+function share() {
+  const link = shareLink();
+  if (canShareFile()) { navigator.share({ files: [card.file], text: shareText() + (link ? '\n' + link : '') }).catch(e => { if (e.name !== 'AbortError') openX(); }); return; }
+  openX();
+}
+function openX() {
+  const link = shareLink(), u = 'https://x.com/intent/tweet?text=' + encodeURIComponent(shareText()) + (link ? '&url=' + encodeURIComponent(link) : '');
+  try {
+    navigator.clipboard.write([new ClipboardItem({ 'image/png': card.blob })])
+      .then(() => toast('画像をコピーしました。投稿の画面に貼り付けてください'), () => toast('画像は保存してから添付してください'));
+  } catch (e) { toast('画像は保存してから添付してください'); }
+  const w = window.open(u, '_blank'); if (w) w.opener = null; else location.href = u;
+}
+// 保存：スマホは共有シート（「画像を保存」で写真へ）、PC はダウンロード
+function save() {
+  if (!card) return;
+  if (canShareFile()) { navigator.share({ files: [card.file] }).catch(e => { if (e.name !== 'AbortError') download(); }); return; }
+  download();
+}
+$('bX').onclick = () => { if (card) share(); };
+$('bImg').onclick = save;
 
 // ----- 操作 -----
 document.addEventListener('pointerdown', auInit, true);
@@ -1118,7 +1193,7 @@ async function rkSubmit() {
   const s = best.d;
   try {
     const res = await fetch('/api/rank', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ s, u, p: best.p, j: best.j, d: devId(), at: best.at }) });   // at：自己ベストを出した時刻（今日の一覧に入れるかどうか）
+      body: JSON.stringify({ s, u, p: best.p, j: best.j, k: zKey(s), d: devId(), at: best.at }) });   // at：自己ベストを出した時刻（今日の一覧に入れるかどうか）
     const j = await res.json();
     if (!res.ok) throw new Error(j.error || res.status);
     rk.data = j;

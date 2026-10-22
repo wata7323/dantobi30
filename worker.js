@@ -1,7 +1,7 @@
 // 30段跳び：ランキングの API と遊んだ回数の集計。それ以外のパスは静的ファイル（index.html）をそのまま返す
 //   GET  /api/rank                 → {all:[…],day:[…],today:'YYYY-MM-DD'}
-//                                     1件は {id,u,s,p,j,t}（u なまえ、s 記録 m、p PERFECT の数、j JUST の数、t 登録時刻）
-//   POST /api/rank {s,u,p,j,d,at}   → 中身を検証し、全期間か今日の上位に入れば保存して {pos,dpos,id,best,…上と同じ一覧}
+//                                     1件は {id,u,s,p,j,k,t}（u なまえ、s 記録 m、p PERFECT の数、j JUST の数、k 結果の種類、t 登録時刻）
+//   POST /api/rank {s,u,p,j,k,d,at}   → 中身を検証し、全期間か今日の上位に入れば保存して {pos,dpos,id,best,…上と同じ一覧}
 //                                     d は端末番号（無いものは受け付けない）。各一覧に1端末1件（自己ベストだけ）。より良い記録なら入れ替えて best=true
 //                                     at はその記録を出した時刻。今日の一覧には、今日出した記録だけを入れる（ゲームは自己ベストを送る）
 //   POST /api/play {e,f,v,l}        → 1回の遊びを数えて、調整用に1行残す（e はプレイごとの番号。同じ e の送り直しは数えない）
@@ -10,6 +10,8 @@
 //   GET  /stats                     → 合言葉の入力欄だけ
 //   POST /stats {k,a,id,ver}        → 合言葉が合えば、集計（日本時間の日ごと）・分析・ランキングの全件を見せる
 //                                     a=reset で集計を0に（ランキングは残す）、a=del でランキングの1件を消す、a=csv で記録を CSV で保存
+//   GET  /k/<キー>                → 結果の種類ごとのプレビュー（OGP）だけのページ。開くとすぐゲームへ移る。キーは決まった英字だけ
+//   GET  /（index.html）           → 中の %ORIGIN% を公開先の https://… に置き換えて返す（プレビュー画像は絶対 URL でないと X が読まない）
 //   POST /admin {k,a,id}            → 合言葉が合えば、a=list で全件（JSON）、a=del で id の1件を消す。GET /admin は /stats へ
 //                                     合言葉は Cloudflare の Secret「ADMIN_KEY」に登録する（コードには書かない。未登録なら使えない）
 // 保存先は Durable Object（SQLite、無料プランで使える）1つ。自由な文字は受け取らない（なまえはひらがな・カタカナ8文字まで）
@@ -26,6 +28,9 @@ function validUser(u){
   if(typeof u!=='string'||!/^[ぁ-ゖァ-ヺー]{1,8}$/.test(u)||NAME_NG.some(w=>hira(u).includes(w)))return null;
   return u;
 }
+// 結果の種類（景色）。ゲームの ZKEYS と同じ並び。プレビューの画像は og/v1/<キー>.jpg（作り直したら v2 に変える。X が古い絵を覚えているため）
+const KINDS={stadium:'競技場の中',city:'競技場を飛び出した',farm:'田園を越えた',sea:'海を渡った',desert:'砂漠の向こうへ',snow:'雪山を越えた伝説',horizon:'地平線の彼方へ（全PERFECT級）'};
+const OG_VER='v1',DESC='ホップ・ステップ×28・ジャンプ。着地のたびにタップして、30段跳びでどこまで飛べるか。';
 const isCount=x=>Number.isInteger(x)&&x>=0&&x<=JUMPS;
 function valid(b){
   if(!b||typeof b!=='object')return null;
@@ -34,7 +39,7 @@ function valid(b){
   if(typeof s!=='number'||!isFinite(s)||s<=0||s>S_MAX)return null;
   if(Math.round(s*10)!==+(s*10).toFixed(6))return null;   // 記録は小数1桁まで
   if(!isCount(b.p)||!isCount(b.j)||b.j>b.p)return null;   // JUST は PERFECT の中のさらにぴったり
-  return {s,u,p:b.p,j:b.j};
+  return {s,u,p:b.p,j:b.j,k:Object.hasOwn(KINDS,b.k)?b.k:''};
 }
 // 調整用の記録（1回の遊びで1行）。決まった語と範囲の数だけを通す
 const LOG_KEEP=200000;   // 新しい20万件だけ残す
@@ -278,13 +283,33 @@ ${analysisHtml(A,ver,hk)}
 <form class="k" method="post" action="/stats">${hk}<input type="hidden" name="a" value="view"><button>最新にする</button></form>`);
 }
 
+// 結果の種類ごとのプレビューのページ（中身なし。OGP とタイトルだけ持ち、すぐゲームのトップへ移る）
+function kindPage(origin,key){
+  const t=KINDS[key]+'｜30だんとび',img=`${origin}/og/${OG_VER}/${key}.jpg`;
+  return new Response(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>${t}</title>
+<meta property="og:type" content="website"><meta property="og:title" content="${t}"><meta property="og:description" content="${DESC}">
+<meta property="og:url" content="${origin}/k/${key}"><meta property="og:image" content="${img}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image"><script>location.replace('/')</script></head><body><a href="/">30だんとび</a></body></html>`,
+    {headers:{'content-type':'text/html; charset=utf-8','cache-control':'public, max-age=3600','x-robots-tag':'noindex'}});
+}
+// トップ：index.html の %ORIGIN% を公開先に置き換える（wrangler.jsonc の run_worker_first で、/ もここを通る）
+async function top(req,env,origin){
+  const r=await env.ASSETS.fetch(new Request(origin+'/',req));   // /index.html を頼むと / へ転送されるので / を読む
+  if(!r.ok||!(r.headers.get('content-type')||'').includes('text/html'))return r;
+  const h=new Headers(r.headers);h.delete('content-length');h.delete('etag');
+  return new Response((await r.text()).replaceAll('%ORIGIN%',origin),{status:r.status,headers:h});
+}
+
 export default {
   async fetch(req,env){
-    const p=new URL(req.url).pathname;
+    const url=new URL(req.url),p=url.pathname;
     if(p==='/api/rank')return rank(req,env);
     if(p==='/api/play')return play(req,env);
     if(p==='/stats')return stats(req,env);
     if(p==='/admin')return admin(req,env);
+    const km=/^\/k\/([a-z]+)\/?$/.exec(p);
+    if(km)return Object.hasOwn(KINDS,km[1])?kindPage(url.origin,km[1]):Response.redirect(url.origin+'/',302);
+    if(p==='/')return top(req,env,url.origin);
     return env.ASSETS.fetch(req);
   }
 };
