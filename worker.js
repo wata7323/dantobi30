@@ -29,7 +29,7 @@ function validUser(u){
   return u;
 }
 // 結果の種類（景色）。ゲームの ZKEYS と同じ並び。プレビューの画像は og/v1/<キー>.jpg（作り直したら v2 に変える。X が古い絵を覚えているため）
-const KINDS={stadium:'競技場の中',city:'競技場を飛び出した',farm:'田園を越えた',sea:'海を渡った',desert:'砂漠の向こうへ',snow:'雪山を越えた伝説',horizon:'地平線の彼方へ（全PERFECT級）'};
+const KINDS={stadium:'競技場の中',city:'競技場を飛び出した',farm:'田園を越えた',sea:'海を渡った',desert:'砂漠の向こうへ',snow:'雪山を越えた伝説',horizon:'地平線の彼方へ'};
 const OG_VER='v1',DESC='ホップ・ステップ×28・ジャンプ。着地のたびにタップして、30段跳びでどこまで飛べるか。';
 const isCount=x=>Number.isInteger(x)&&x>=0&&x<=JUMPS;
 function valid(b){
